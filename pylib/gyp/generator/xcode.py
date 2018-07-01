@@ -202,7 +202,6 @@ class XcodeProject(object):
       config_ref = build_group.AddOrGetFileByPath(xcc_path, False)
       # ==================================================================
       xccl.SetBaseConfiguration(config_ref)
-
     build_file_configurations = self.build_file_dict.get('configurations', {})
     if build_file_configurations:
       for config_name in configurations:
@@ -1298,7 +1297,7 @@ exit 1
       #  NOTE(grayson): Make sure to include upstream library search paths.
       # ------------------------------------------------------------------------
       requires_inherited = False
-      # ------------------------------------------------------------------------
+      # ========================================================================
       for library in spec['libraries']:
         xct.FrameworksPhase().AddFile(library)
         # Add the library's directory to LIBRARY_SEARCH_PATHS if necessary.

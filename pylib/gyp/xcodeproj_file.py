@@ -1863,11 +1863,11 @@ class XCBuildPhase(XCObject):
     #  NOTE(grayson): Don't traverse hierarchy if it's a bundle inside a bundle.
     # --------------------------------------------------------------------------
     # file_ref = file_group.AddOrGetFileByPath(path, hierarchical)
-
+    # --------------------------------------------------------------------------
     if self.path_bundle_re.match(path):
       file_ref = file_group.AddOrGetFileByPath(path, False)
     else:
-    file_ref = file_group.AddOrGetFileByPath(path, hierarchical)
+      file_ref = file_group.AddOrGetFileByPath(path, hierarchical)
     # ==========================================================================
 
     if file_ref in self._files_by_xcfilelikeelement and \
@@ -2426,7 +2426,6 @@ class PBXNativeTarget(XCTarget):
         # behavior.
         if force_prefix is not None:
           prefix = force_prefix
-
         # ==========================================================================
         #  NOTE(grayson): Turn off setting of WRAPPER_PREFIX.
         # --------------------------------------------------------------------------
