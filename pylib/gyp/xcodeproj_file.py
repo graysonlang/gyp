@@ -2437,7 +2437,7 @@ class PBXNativeTarget(XCTarget):
 
         if not filetype.startswith('wrapper.'):
           if prefix != "":
-          self.SetBuildSetting('EXECUTABLE_PREFIX', prefix)
+            self.SetBuildSetting('EXECUTABLE_PREFIX', prefix)
         # ==========================================================================
 
         if force_outdir is not None:
