@@ -1850,9 +1850,25 @@ class XCBuildPhase(XCObject):
     self.AppendProperty('files', pbxbuildfile)
     self._AddBuildFileToDicts(pbxbuildfile, path)
 
+  # ==========================================================================
+  #  NOTE(grayson): Don't traverse hierarchy if it's a bundle inside a bundle.
+  # --------------------------------------------------------------------------
+  path_bundle_re = re.compile('^.*\.bundle$')
+  # ==========================================================================
+
   def AddFile(self, path, settings=None):
     (file_group, hierarchical) = self.FileGroup(path)
+
+    # ==========================================================================
+    #  NOTE(grayson): Don't traverse hierarchy if it's a bundle inside a bundle.
+    # --------------------------------------------------------------------------
+    # file_ref = file_group.AddOrGetFileByPath(path, hierarchical)
+
+    if self.path_bundle_re.match(path):
+      file_ref = file_group.AddOrGetFileByPath(path, False)
+    else:
     file_ref = file_group.AddOrGetFileByPath(path, hierarchical)
+    # ==========================================================================
 
     if file_ref in self._files_by_xcfilelikeelement and \
        isinstance(file_ref, PBXVariantGroup):
@@ -2410,10 +2426,19 @@ class PBXNativeTarget(XCTarget):
         # behavior.
         if force_prefix is not None:
           prefix = force_prefix
-        if filetype.startswith('wrapper.'):
-          self.SetBuildSetting('WRAPPER_PREFIX', prefix)
-        else:
+
+        # ==========================================================================
+        #  NOTE(grayson): Turn off setting of WRAPPER_PREFIX.
+        # --------------------------------------------------------------------------
+        # if filetype.startswith('wrapper.'):
+        #   self.SetBuildSetting('WRAPPER_PREFIX', prefix)
+        # else:
+        #   self.SetBuildSetting('EXECUTABLE_PREFIX', prefix)
+
+        if not filetype.startswith('wrapper.'):
+          if prefix != "":
           self.SetBuildSetting('EXECUTABLE_PREFIX', prefix)
+        # ==========================================================================
 
         if force_outdir is not None:
           self.SetBuildSetting('TARGET_BUILD_DIR', force_outdir)

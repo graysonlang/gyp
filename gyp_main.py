@@ -7,6 +7,8 @@
 import os
 import sys
 
+sys.dont_write_bytecode = True
+
 # Make sure we're using the version of pylib in this repo, not one installed
 # elsewhere on the system.
 sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), 'pylib'))

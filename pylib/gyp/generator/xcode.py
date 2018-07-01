@@ -169,10 +169,15 @@ class XcodeProject(object):
     # opened.  If the active build configuration is changed, the project file
     # must be closed and reopened if it is desired for the tree view to update.
     # This is filed as Apple radar 6588391.
-    xccl.SetBuildSetting(_intermediate_var,
-                         '$(PROJECT_DERIVED_FILE_DIR)/$(CONFIGURATION)')
-    xccl.SetBuildSetting(_shared_intermediate_var,
-                         '$(SYMROOT)/DerivedSources/$(CONFIGURATION)')
+
+    # ==========================================================================
+    #  NOTE(grayson): Turn off INTERMEDIATE_DIR and SHARED_INTERMEDIATE_DIR.
+    # --------------------------------------------------------------------------
+    # xccl.SetBuildSetting(_intermediate_var,
+    #                      '$(PROJECT_DERIVED_FILE_DIR)/$(CONFIGURATION)')
+    # xccl.SetBuildSetting(_shared_intermediate_var,
+    #                      '$(SYMROOT)/DerivedSources/$(CONFIGURATION)')
+    # ==========================================================================
 
     # Set user-specified project-wide build settings and config files.  This
     # is intended to be used very sparingly.  Really, almost everything should
@@ -186,9 +191,18 @@ class XcodeProject(object):
     for xck, xcv in self.build_file_dict.get('xcode_settings', {}).iteritems():
       xccl.SetBuildSetting(xck, xcv)
     if 'xcode_config_file' in self.build_file_dict:
-      config_ref = self.project.AddOrGetFileInRootGroup(
-          self.build_file_dict['xcode_config_file'])
+      # ==================================================================
+      #  NOTE(grayson): Add xcconfig files to 'Build' folder, not 'Source'.
+      # ------------------------------------------------------------------
+      # config_ref = self.project.AddOrGetFileInRootGroup(
+      #     self.build_file_dict['xcode_config_file'])
+      # ------------------------------------------------------------------
+      build_group = self.project.GetProperty('mainGroup').GetChildByName('Build')
+      xcc_path = self.build_file_dict['xcode_config_file']
+      config_ref = build_group.AddOrGetFileByPath(xcc_path, False)
+      # ==================================================================
       xccl.SetBaseConfiguration(config_ref)
+
     build_file_configurations = self.build_file_dict.get('configurations', {})
     if build_file_configurations:
       for config_name in configurations:
@@ -200,8 +214,16 @@ class XcodeProject(object):
                                                              {}).iteritems():
             xcc.SetBuildSetting(xck, xcv)
           if 'xcode_config_file' in build_file_configuration_named:
-            config_ref = self.project.AddOrGetFileInRootGroup(
-                build_file_configurations[config_name]['xcode_config_file'])
+            # ==================================================================
+            #  NOTE(grayson): Add xcconfig files to 'Build' folder, not 'Source'.
+            # ------------------------------------------------------------------
+            # config_ref = self.project.AddOrGetFileInRootGroup(
+            #     build_file_configurations[config_name]['xcode_config_file'])
+            # ------------------------------------------------------------------
+            build_group = self.project.GetProperty('mainGroup').GetChildByName('Build')
+            xcc_path = build_file_configurations[config_name]['xcode_config_file']
+            config_ref = build_group.AddOrGetFileByPath(xcc_path, False)
+            # ==================================================================
             xcc.SetBaseConfiguration(config_ref)
 
     # Sort the targets based on how they appeared in the input.
@@ -322,42 +344,48 @@ sys.exit(subprocess.call(sys.argv[1:]))" """
     # Products group is sorted based on the order of the targets.
     self.project.SortGroups()
 
-    # Create an "All" target if there's more than one target in this project
-    # file and the project didn't define its own "All" target.  Put a generated
-    # "All" target first so that people opening up the project for the first
-    # time will build everything by default.
-    if len(targets_for_all) > 1 and not has_custom_all:
-      xccl = CreateXCConfigurationList(configurations)
-      all_target = gyp.xcodeproj_file.PBXAggregateTarget(
-          {
-            'buildConfigurationList': xccl,
-            'name':                   'All',
-          },
-          parent=self.project)
+    # ==========================================================================
+    #  NOTE(grayson): Turn off creation of the "All" pseudo schemes.
+    # --------------------------------------------------------------------------
+    create_all_schemes = False
+    if create_all_schemes:
+      # Create an "All" target if there's more than one target in this project
+      # file and the project didn't define its own "All" target.  Put a generated
+      # "All" target first so that people opening up the project for the first
+      # time will build everything by default.
+      if len(targets_for_all) > 1 and not has_custom_all:
+        xccl = CreateXCConfigurationList(configurations)
+        all_target = gyp.xcodeproj_file.PBXAggregateTarget(
+            {
+              'buildConfigurationList': xccl,
+              'name':                   'All',
+            },
+            parent=self.project)
 
-      for target in targets_for_all:
-        all_target.AddDependency(target)
+        for target in targets_for_all:
+          all_target.AddDependency(target)
 
-      # TODO(mark): This is evil because it relies on internal knowledge of
-      # PBXProject._properties.  It's important to get the "All" target first,
-      # though.
-      self.project._properties['targets'].insert(0, all_target)
+        # TODO(mark): This is evil because it relies on internal knowledge of
+        # PBXProject._properties.  It's important to get the "All" target first,
+        # though.
+        self.project._properties['targets'].insert(0, all_target)
 
-    # The same, but for run_test_targets.
-    if len(run_test_targets) > 1:
-      xccl = CreateXCConfigurationList(configurations)
-      run_all_tests_target = gyp.xcodeproj_file.PBXAggregateTarget(
-          {
-            'buildConfigurationList': xccl,
-            'name':                   'Run All Tests',
-          },
-          parent=self.project)
-      for run_test_target in run_test_targets:
-        run_all_tests_target.AddDependency(run_test_target)
+      # The same, but for run_test_targets.
+      if len(run_test_targets) > 1:
+        xccl = CreateXCConfigurationList(configurations)
+        run_all_tests_target = gyp.xcodeproj_file.PBXAggregateTarget(
+            {
+              'buildConfigurationList': xccl,
+              'name':                   'Run All Tests',
+            },
+            parent=self.project)
+        for run_test_target in run_test_targets:
+          run_all_tests_target.AddDependency(run_test_target)
 
-      # Insert after the "All" target, which must exist if there is more than
-      # one run_test_target.
-      self.project._properties['targets'].insert(1, run_all_tests_target)
+        # Insert after the "All" target, which must exist if there is more than
+        # one run_test_target.
+        self.project._properties['targets'].insert(1, run_all_tests_target)
+    # ==========================================================================
 
   def Finalize2(self, xcode_targets, xcode_target_to_target_dict):
     # Finalize2 needs to happen in a separate step because the process of
@@ -491,7 +519,13 @@ sys.exit(subprocess.call(sys.argv[1:]))" """
 def AddSourceToTarget(source, type, pbxp, xct):
   # TODO(mark): Perhaps source_extensions and library_extensions can be made a
   # little bit fancier.
-  source_extensions = ['c', 'cc', 'cpp', 'cxx', 'm', 'mm', 's', 'swift']
+  # ============================================================================
+  #  NOTE(grayson): Add xcdatamodeld source type.
+  # ----------------------------------------------------------------------------
+  # source_extensions = ['c', 'cc', 'cpp', 'cxx', 'm', 'mm', 's', 'swift']
+  # ----------------------------------------------------------------------------
+  source_extensions = ['c', 'cc', 'cpp', 'cxx', 'm', 'mm', 's', 'swift', 'xcdatamodeld']
+  # ============================================================================
 
   # .o is conceptually more of a "source" than a "library," but Xcode thinks
   # of "sources" as things to compile and "libraries" (or "frameworks") as
@@ -1260,6 +1294,11 @@ exit 1
           support_xct.AddDependency(xcode_targets[dependency])
 
     if 'libraries' in spec:
+      # ========================================================================
+      #  NOTE(grayson): Make sure to include upstream library search paths.
+      # ------------------------------------------------------------------------
+      requires_inherited = False
+      # ------------------------------------------------------------------------
       for library in spec['libraries']:
         xct.FrameworksPhase().AddFile(library)
         # Add the library's directory to LIBRARY_SEARCH_PATHS if necessary.
@@ -1269,6 +1308,13 @@ exit 1
             not xct.HasBuildSetting(_library_search_paths_var) or
             library_dir not in xct.GetBuildSetting(_library_search_paths_var)):
           xct.AppendBuildSetting(_library_search_paths_var, library_dir)
+      # ========================================================================
+      #  NOTE(grayson): Make sure to include upstream library search paths.
+      # ------------------------------------------------------------------------
+          requires_inherited = True
+      if requires_inherited:
+        xct.AppendBuildSetting(_library_search_paths_var, '$(inherited)')
+      # ========================================================================
 
     for configuration_name in configuration_names:
       configuration = spec['configurations'][configuration_name]
@@ -1291,8 +1337,16 @@ exit 1
         for xck, xcv in configuration['xcode_settings'].iteritems():
           xcbc.SetBuildSetting(xck, xcv)
       if 'xcode_config_file' in configuration:
-        config_ref = pbxp.AddOrGetFileInRootGroup(
-            configuration['xcode_config_file'])
+        # ======================================================================
+        #  NOTE(grayson): Add xcconfig files to 'Build' folder, not 'Source'.
+        # ----------------------------------------------------------------------
+        # config_ref = pbxp.AddOrGetFileInRootGroup(
+        #     configuration['xcode_config_file'])
+        # ----------------------------------------------------------------------
+        build_group = pbxp.GetProperty('mainGroup').GetChildByName('Build')
+        xcc_path = configuration['xcode_config_file']
+        config_ref = build_group.AddOrGetFileByPath(xcc_path, False)
+        # ======================================================================
         xcbc.SetBaseConfiguration(config_ref)
 
   build_files = []
